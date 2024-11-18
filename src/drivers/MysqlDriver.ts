@@ -329,8 +329,10 @@ export default class MysqlDriver extends AbstractDriver {
             is_unique: number;
             is_primary_key: number;
             is_fulltext: number;
+            seq_in_index: number;
         }>(`SELECT TABLE_NAME TableName,INDEX_NAME IndexName,COLUMN_NAME ColumnName,CASE WHEN NON_UNIQUE=0 THEN 1 ELSE 0 END is_unique,
-        CASE WHEN INDEX_NAME='PRIMARY' THEN 1 ELSE 0 END is_primary_key, CASE WHEN INDEX_TYPE="FULLTEXT" THEN 1 ELSE 0 END is_fulltext
+        CASE WHEN INDEX_NAME='PRIMARY' THEN 1 ELSE 0 END is_primary_key, CASE WHEN INDEX_TYPE="FULLTEXT" THEN 1 ELSE 0 END is_fulltext,
+        seq_in_index
         FROM information_schema.statistics sta
         WHERE table_schema IN (${MysqlDriver.buildEscapedObjectList(
             dbNames
@@ -356,9 +358,11 @@ export default class MysqlDriver extends AbstractDriver {
                     indexInfo.options.fulltext = true;
                 if (records[0].is_unique === 1) indexInfo.options.unique = true;
 
-                records.forEach((record) => {
-                    indexInfo.columns.push(record.ColumnName);
-                });
+                records
+                    .sort((a, b) => a.seq_in_index - b.seq_in_index)
+                    .forEach((record) => {
+                        indexInfo.columns.push(record.ColumnName);
+                    });
                 ent.indices.push(indexInfo);
             });
         });
